@@ -2,12 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   typescript: {
-    // TypeScript hataları olsa bile projeyi build etmeye devam et
+    // TypeScript ve derleme hatalarını build sırasında yok say
     ignoreBuildErrors: true,
-  },
-  eslint: {
-    // ESLint hataları olsa bile projeyi build etmeye devam et
-    ignoreDuringBuilds: true,
   },
 };
 
