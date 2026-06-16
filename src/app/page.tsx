@@ -243,8 +243,12 @@ export default function EnglishOSMaster() {
   const totalGrammarCount = grammarTopics.length;
   const masteredGrammarCount = grammarTopics.filter(g => g.status === 'Mastered').length;
 
-  const levelCounts = { A1: 0, A2: 0, B1: 0, B2: 0, C1: 0, C2: 0 };
-  customWords.forEach(w => { if (levelCounts[w.level] !== undefined) levelCounts[w.level]++; });
+  const levelCounts: Record<string, number> = { A1: 0, A2: 0, B1: 0, B2: 0, C1: 0, C2: 0 };
+customWords.forEach(w => { 
+  if (w.level && levelCounts[w.level] !== undefined) {
+    levelCounts[w.level]++; 
+  }
+});
 
   const filteredAlphabeticalWords = [...customWords]
     .filter(w => w.word.toLowerCase().includes(searchQuery.toLowerCase()))
