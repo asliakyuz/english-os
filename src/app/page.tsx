@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase';
 import Sidebar from '../components/Sidebar';
 import { BookOpen, PenTool, Plus, Trash2, CheckSquare, Square, ArrowRight, Search, CheckCircle2, GraduationCap, ChevronDown, ChevronUp, BarChart3, Target, Layers } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 interface Word {
   id: string;
   word: string;
