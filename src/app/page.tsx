@@ -70,7 +70,10 @@ export default function EnglishOSMaster() {
 
   // --- GENEL GRAMER STATE'LERİ ---
   const [generalTopics, setGeneralTopics] = useState<any[]>([]);
+  const [showGeneralForm, setShowGeneralForm] = useState(false);
   const [newGeneralTitle, setNewGeneralTitle] = useState('');
+  const [newGeneralContent, setNewGeneralContent] = useState('');
+  const [newGeneralStarred, setNewGeneralStarred] = useState(false);
 
   // Form States (Vocabulary & Journal)
   const [word, setWord] = useState('');
@@ -169,7 +172,6 @@ export default function EnglishOSMaster() {
     if (!error) fetchUnits();
   };
 
-  // --- KİTAP ÜNİTESİ YILDIZ TOOGLE ---
   const handleToggleBookStar = async (unitId: string, currentStarStatus: boolean, e: React.MouseEvent) => {
     e.stopPropagation();
     const newStarStatus = !currentStarStatus;
@@ -195,11 +197,16 @@ export default function EnglishOSMaster() {
     });
   };
 
-  const handleAddGeneralTopic = async (e: React.MouseEvent<HTMLButtonElement> | React.FormEvent) => {
+  const handleAddGeneralTopic = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newGeneralTitle.trim()) return;
-    await supabase.from('general_grammar').insert([{ title: newGeneralTitle.trim() }]);
+    await supabase.from('general_grammar').insert([
+      { title: newGeneralTitle.trim(), content: newGeneralContent.trim(), is_starred: newGeneralStarred }
+    ]);
     setNewGeneralTitle('');
+    setNewGeneralContent('');
+    setNewGeneralStarred(false);
+    setShowGeneralForm(false);
     fetchGeneralTopics();
   };
 
@@ -207,11 +214,16 @@ export default function EnglishOSMaster() {
     await supabase.from('general_grammar').update({ content }).eq('id', id);
   };
 
-  // --- GENEL GRAMER KONUSU YILDIZ TOOGLE ---
   const handleToggleGeneralStar = async (id: string, currentStarStatus: boolean) => {
     const newStarStatus = !currentStarStatus;
     const { error } = await supabase.from('general_grammar').update({ is_starred: newStarStatus }).eq('id', id);
     if (!error) fetchGeneralTopics();
+  };
+
+  const handleDeleteGeneralTopic = async (id: string) => {
+    if (!confirm("Bu genel konuyu silmek istiyor musun Aslı?")) return;
+    await supabase.from('general_grammar').delete().eq('id', id);
+    fetchGeneralTopics();
   };
 
   // Vocab Handlers
@@ -368,9 +380,9 @@ export default function EnglishOSMaster() {
               <form onSubmit={handleAddUnit} className="bg-[#130c25] border border-[#ec4899]/30 p-5 rounded-xl flex flex-col gap-4 shadow-xl">
                 <div className="grid grid-cols-3 gap-3">
                   <input type="number" required placeholder="Unit No" value={unitNumber} onChange={(e) => setUnitNumber(e.target.value)} className="bg-[#0d071a] border border-[#2d1e56] p-3 rounded-lg text-xs text-white focus:outline-none" />
-                  <input type="text" required placeholder="Unit Title (e.g., am/is/are)" value={unitTitle} onChange={(e) => setUnitTitle(e.target.value)} className="bg-[#0d071a] border border-[#2d1e56] p-3 rounded-lg col-span-2 text-xs text-white focus:outline-none" />
+                  <input type="text" required placeholder="Unit Title" value={unitTitle} onChange={(e) => setUnitTitle(e.target.value)} className="bg-[#0d071a] border border-[#2d1e56] p-3 rounded-lg col-span-2 text-xs text-white focus:outline-none" />
                 </div>
-                <input type="text" placeholder="Section / Group Name (e.g., Present, Past)" value={sectionName} onChange={(e) => setSectionName(e.target.value)} className="bg-[#0d071a] border border-[#2d1e56] p-3 rounded-lg text-xs text-white focus:outline-none" />
+                <input type="text" placeholder="Section / Group Name" value={sectionName} onChange={(e) => setSectionName(e.target.value)} className="bg-[#0d071a] border border-[#2d1e56] p-3 rounded-lg text-xs text-white focus:outline-none" />
                 <button type="submit" className="bg-[#ec4899] text-white font-bold py-2.5 rounded-lg text-xs">DEPLOY_UNIT_TO_MATRIX</button>
               </form>
             )}
@@ -391,7 +403,6 @@ export default function EnglishOSMaster() {
                             {isCompleted ? <CheckSquare size={16} className="text-emerald-400" /> : <Square size={16} />}
                           </button>
                           
-                          {/* ⭐️ KİTAP ÜNİTESİ YILDIZ BUTONU */}
                           <button type="button" onClick={(e) => handleToggleBookStar(u.id, isStarred, e)} className="text-gray-500 hover:text-amber-400 transition-colors">
                             <Star size={16} className={isStarred ? 'text-amber-400 fill-amber-400' : 'text-gray-500'} />
                           </button>
@@ -417,32 +428,51 @@ export default function EnglishOSMaster() {
           </div>
         )}
 
-        {/* 📝 SEKME: GENEL GRAMER KONULARI (OTOMATİK KAYDEDİLEN ÖZET ALANI) */}
+        {/* 📝 SEKME: GENEL GRAMER KONULARI (GELİŞMİŞ KOCAMAN FORM) */}
         {activeTab === 'general_grammar' && (
           <div className="p-2 flex flex-col gap-6 max-w-4xl mx-auto">
-            <form onSubmit={handleAddGeneralTopic} className="flex gap-2 bg-[#130c25] p-3 border border-[#231742] rounded-xl">
-              <input type="text" required value={newGeneralTitle} onChange={e => setNewGeneralTitle(e.target.value)} placeholder="Yeni Genel Konu Başlığı Gir (Örn: Inversion, Relative Clauses)" className="bg-[#0d071a] border border-[#2d1e56] p-2.5 rounded-lg flex-1 text-xs text-white focus:outline-none focus:border-[#a855f7]" />
-              <button type="submit" className="bg-[#a855f7] px-5 py-2.5 rounded-lg hover:bg-[#9333ea] text-xs font-bold transition-colors">LAUNCH_TOPIC</button>
-            </form>
+            <div className="flex justify-between items-center bg-[#130c25] border border-[#231742] p-4 rounded-xl">
+              <span className="text-xs font-bold text-gray-400 font-mono">MANUAL_GRAMMAR_MATRIX_RESOURCES:</span>
+              <button onClick={() => setShowGeneralForm(!showGeneralForm)} className="bg-[#06b6d4] text-black text-xs font-bold py-2 px-5 rounded-lg transition-all">
+                {showGeneralForm ? 'CLOSE_FORM' : '+ INGEST_NEW_TOPIC'}
+              </button>
+            </div>
+
+            {showGeneralForm && (
+              <form onSubmit={handleAddGeneralTopic} className="bg-[#130c25] border border-[#a855f7]/40 p-6 rounded-xl flex flex-col gap-4 shadow-2xl animate-fade-in">
+                <div className="flex justify-between items-center border-b border-[#231742] pb-3">
+                  <h3 className="text-xs font-bold uppercase text-gray-300">New Topic Node Specification</h3>
+                  <button type="button" onClick={() => setNewGeneralStarred(!newGeneralStarred)} className="flex items-center gap-1.5 text-[10px] font-bold bg-[#0d071a] border border-[#231742] px-3 py-1.5 rounded-md hover:text-amber-400 transition-colors">
+                    <Star size={14} className={newGeneralStarred ? 'text-amber-400 fill-amber-400' : 'text-gray-500'} />
+                    {newGeneralStarred ? 'IMPORTANT_NODE' : 'MARK_AS_IMPORTANT'}
+                  </button>
+                </div>
+                <input type="text" required value={newGeneralTitle} onChange={e => setNewGeneralTitle(e.target.value)} placeholder="Konu Başlığı Gir (Örn: Inversion, Relative Clauses)" className="bg-[#0d071a] border border-[#2d1e56] p-3 rounded-lg text-xs text-white focus:outline-none focus:border-[#a855f7]" />
+                <textarea value={newGeneralContent} onChange={e => setNewGeneralContent(e.target.value)} placeholder="Konunun ilk detaylı özetini, formüllerini buraya kocaman yazabilirsin, Aslı..." rows={6} className="bg-[#0d071a] border border-[#2d1e56] p-4 rounded-lg text-xs text-white resize-none focus:outline-none focus:border-[#a855f7] font-sans font-medium leading-relaxed" />
+                <button type="submit" className="bg-[#a855f7] text-white py-3 rounded-lg hover:bg-[#9333ea] text-xs font-bold transition-all">LAUNCH_TOPIC_NODE_TO_MATRIX</button>
+              </form>
+            )}
 
             <div className="flex flex-col gap-4">
               {generalTopics.length === 0 ? (
                 <div className="text-gray-600 text-center py-12 border border-dashed border-[#231742] rounded-xl text-xs">Henüz genel konu başlığı eklenmemiş Aslı.</div>
               ) : (
                 generalTopics.map((topic, index) => (
-                  <div key={topic.id} className="bg-[#130c25] border border-[#231742] p-5 rounded-xl space-y-3">
+                  <div key={topic.id} className="bg-[#130c25] border border-[#231742] p-5 rounded-xl space-y-3 relative">
                     <div className="flex justify-between items-center border-b border-[#1c1236] pb-2">
                       <h3 className="text-xs font-bold text-emerald-400 flex items-center gap-2">
                         <FileText size={12}/> NODE_ID // {index + 1}. {topic.title.toUpperCase()}
                       </h3>
-                      
-                      {/* ⭐️ GENEL KONULAR YILDIZ BUTONU */}
-                      <button type="button" onClick={() => handleToggleGeneralStar(topic.id, topic.is_starred)} className="text-gray-500 hover:text-amber-400 transition-colors">
-                        <Star size={14} className={topic.is_starred ? 'text-amber-400 fill-amber-400' : 'text-gray-500'} />
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button type="button" onClick={() => handleToggleGeneralStar(topic.id, topic.is_starred)} className="text-gray-500 hover:text-amber-400 transition-colors">
+                          <Star size={14} className={topic.is_starred ? 'text-amber-400 fill-amber-400' : 'text-gray-500'} />
+                        </button>
+                        <button onClick={() => handleDeleteGeneralTopic(topic.id)} className="text-gray-600 hover:text-rose-500 transition-colors">
+                          <Trash2 size={13}/>
+                        </button>
+                      </div>
                     </div>
-                    {/* Buraya yazdığın her özet/not, kutunun dışına tıkladığın an (onBlur) otomatik olarak Supabase'e güncellenir! */}
-                    <textarea defaultValue={topic.content} onBlur={(e) => handleUpdateGeneralContent(topic.id, e.target.value)} placeholder="Bu konunun özetini, formüllerini buraya yaz ve sayfada boş bir yere tıkla... (Otomatik Kaydedilir)" className="w-full h-36 bg-[#0d071a] p-4 rounded-lg text-xs text-white resize-none border border-[#2d1e56] focus:outline-none focus:border-emerald-500 font-sans font-medium leading-relaxed" />
+                    <textarea defaultValue={topic.content} onBlur={(e) => handleUpdateGeneralContent(topic.id, e.target.value)} placeholder="Bu konunun özetini, formüllerini buraya yaz..." className="w-full h-36 bg-[#0d071a] p-4 rounded-lg text-xs text-white resize-none border border-[#2d1e56] focus:outline-none focus:border-emerald-500 font-sans font-medium leading-relaxed" />
                   </div>
                 ))
               )}
@@ -483,6 +513,7 @@ export default function EnglishOSMaster() {
                   <div>
                     <label className="block text-[9px] text-gray-400 mb-1">DIFFICULTY ({difficulty}/5)</label>
                     <input type="range" min="1" max="5" value={difficulty} onChange={e => setDifficulty(Number(e.target.value))} className="w-full accent-[#06b6d4] mt-1.5" />
+                  </div>
                 </div>
                 <button type="submit" className="w-full bg-gradient-to-r from-[#a855f7] to-[#06b6d4] text-white text-xs py-2.5 rounded-lg font-bold">SAVE_TO_SYSTEM</button>
               </form>
@@ -504,7 +535,7 @@ export default function EnglishOSMaster() {
           </div>
         )}
 
-        {/* DIĞER TÜM SEKMELER (Archive, Oxford, Quiz, Journal, Goals) */}
+        {/* DIĞER TÜM SEKMELER */}
         {activeTab === 'archive' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-160px)]">
             <div className="bg-[#130c25] border border-[#231742] rounded-xl p-4 flex flex-col space-y-3 lg:col-span-1 h-full overflow-hidden">
