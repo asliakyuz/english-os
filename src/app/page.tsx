@@ -195,7 +195,7 @@ export default function EnglishOSMaster() {
     });
   };
 
-  const handleAddGeneralTopic = async (e: React.FormEvent) => {
+  const handleAddGeneralTopic = async (e: React.MouseEvent<HTMLButtonElement> | React.FormEvent) => {
     e.preventDefault();
     if (!newGeneralTitle.trim()) return;
     await supabase.from('general_grammar').insert([{ title: newGeneralTitle.trim() }]);
@@ -482,8 +482,7 @@ export default function EnglishOSMaster() {
                   </div>
                   <div>
                     <label className="block text-[9px] text-gray-400 mb-1">DIFFICULTY ({difficulty}/5)</label>
-                    <input type="range" min="1" max="5" value={difficulty} onChange={Number(e => setDifficulty(Number(e.target.value)))} className="w-full accent-[#06b6d4] mt-1.5" />
-                  </div>
+                    <input type="range" min="1" max="5" value={difficulty} onChange={e => setDifficulty(Number(e.target.value))} className="w-full accent-[#06b6d4] mt-1.5" />
                 </div>
                 <button type="submit" className="w-full bg-gradient-to-r from-[#a855f7] to-[#06b6d4] text-white text-xs py-2.5 rounded-lg font-bold">SAVE_TO_SYSTEM</button>
               </form>
