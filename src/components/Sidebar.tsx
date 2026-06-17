@@ -1,95 +1,119 @@
 'use client';
+import { useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabase';
 
-import React from 'react';
-import { BookOpen, MessageSquare, LayoutDashboard, CheckSquare, Calendar, Archive, ShieldCheck, BarChart3 } from 'lucide-react';
+export const dynamic = 'force-dynamic';
 
-interface SidebarProps {
-  activeTab: 'vocabulary' | 'archive' | 'oxford' | 'quiz' | 'journal' | 'goals' | 'grammar' | 'dashboard';
-  setActiveTab: (tab: 'vocabulary' | 'archive' | 'oxford' | 'quiz' | 'journal' | 'goals' | 'grammar' | 'dashboard') => void;
-  activeDays: number[];
-}
+export default function BooksTracker() {
+  const [books, setBooks] = useState<any[]>([]);
+  const [selectedBook, setSelectedBook] = useState<string>('');
+  const [units, setUnits] = useState<any[]>([]);
+  const [activeUnit, setActiveUnit] = useState<any>(null);
+  const [noteText, setNoteText] = useState<string>('');
 
-export default function Sidebar({ activeTab, setActiveTab, activeDays }: SidebarProps) {
-  const menuItems = [
-    { name: 'Performance Dashboard', id: 'dashboard', icon: <BarChart3 size={16} /> }, // Yeni Bağımsız Sekme
-    { name: 'Vocabulary Input', id: 'vocabulary', icon: <BookOpen size={16} /> },
-    { name: 'Vocabulary Archive', id: 'archive', icon: <Archive size={16} /> },
-    { name: 'Oxford 5000 Core', id: 'oxford', icon: <ShieldCheck size={16} /> },
-    { name: 'Red Book Grammar', id: 'grammar', icon: <LayoutDashboard size={16} /> },
-    { name: 'Journal / Daily Logs', id: 'journal', icon: <MessageSquare size={16} /> },
-    { name: 'Targets / Goals', id: 'goals', icon: <CheckSquare size={16} /> },
-  ];
+  useEffect(() => {
+    // 1. Sistemdeki kitapları çek (Grammar, Vocab hepsi buraya dinamik gelir!)
+    supabase.from('books').select('*').then(({ data }) => {
+      if (data) {
+        setBooks(data);
+        if (data.length > 0) setSelectedBook(data[0].id);
+      }
+    });
+  }, []);
 
-  const totalDaysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
-  const currentMonthName = new Date().toLocaleString('en-US', { month: 'short' }).toUpperCase();
+  useEffect(() => {
+    if (!selectedBook) return;
+    // 2. Seçili kitabın ünitelerini ve senin ilerleme (tik/not) durumunu çek
+    supabase.from('book_units')
+      .select(`*, user_progress(is_completed, notes)`)
+      .eq('book_id', selectedBook)
+      .order('unit_number', { ascending: true })
+      .then(({ data }) => { if (data) setUnits(data); });
+  }, [selectedBook]);
+
+  const handleToggleTick = async (unitId: string, currentStatus: boolean) => {
+    const newStatus = !currentStatus;
+    const { error } = await supabase.from('user_progress').upsert(
+      { unit_id: unitId, is_completed: newStatus },
+      { onConflict: 'unit_id' }
+    );
+    // Sayfayı anlık güncelle
+    if (!error) {
+      setUnits(units.map(u => u.id === unitId ? { ...u, user_progress: { ...u.user_progress, is_completed: newStatus } } : u));
+    }
+  };
+
+  const handleSaveNote = async () => {
+    if (!activeUnit) return;
+    await supabase.from('user_progress').upsert(
+      { unit_id: activeUnit.id, notes: noteText },
+      { onConflict: 'unit_id' }
+    );
+    alert('Not başarıyla kaydedildi, Aslı!');
+  };
 
   return (
-    <div className="w-64 h-screen bg-[#130c25] border-r border-[#231742] flex flex-col justify-between p-4 fixed left-0 top-0 z-50 overflow-y-auto">
-      <div className="space-y-6">
-        {/* LOGO */}
-        <div className="flex items-center gap-2 px-2 pt-2">
-          <div className="w-2 h-2 rounded-full bg-[#06b6d4] shadow-[0_0_8px_#06b6d4] animate-pulse" />
-          <h1 className="text-xs font-bold bg-gradient-to-r from-[#a855f7] to-[#06b6d4] bg-clip-text text-transparent tracking-widest font-mono">
-            ENGLISH.OS
-          </h1>
-        </div>
+    <div className="flex h-screen bg-slate-900 text-white p-6 gap-6">
+      {/* SOL SÜTUN: Üniteler ve Seçim */}
+      <div className="w-1/2 bg-slate-800 p-4 rounded-xl flex flex-col gap-4 overflow-y-auto">
+        <select 
+          value={selectedBook} 
+          onChange={(e) => setSelectedBook(e.target.value)}
+          className="bg-slate-700 p-2 rounded text-white font-bold"
+        >
+          {books.map(b => <option key={b.id} value={b.id}>{b.title} ({b.category})</option>)}
+        </select>
 
-        {/* TRACKER TAKVİM */}
-        <div className="bg-[#0d071a] border border-[#231742] p-3 rounded-xl space-y-2 mx-1">
-          <div className="flex items-center gap-1 text-[9px] font-bold text-gray-400 font-mono tracking-wider">
-            <Calendar size={10} className="text-[#06b6d4]" /> {currentMonthName} TRACKER
-          </div>
-          <div className="grid grid-cols-7 gap-1">
-            {Array.from({ length: totalDaysInMonth }, (_, i) => {
-              const dayNumber = i + 1;
-              const isToday = dayNumber === new Date().getDate();
-              const hasActivity = activeDays.includes(dayNumber);
-
-              return (
-                <div
-                  key={dayNumber}
-                  className={`w-5 h-5 rounded-sm flex items-center justify-center text-[8px] font-bold font-mono transition-all ${
-                    hasActivity
-                      ? 'bg-emerald-500 text-white shadow-[0_0_5px_rgba(16,185,129,0.5)]'
-                      : isToday
-                        ? 'border border-[#06b6d4] text-[#06b6d4] bg-[#1c1236]'
-                        : 'bg-[#181130] text-gray-600'
-                  }`}
-                >
-                  {dayNumber}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* MENÜ BUTONLARI */}
-        <nav className="space-y-1 font-mono">
-          {menuItems.map((item) => {
-            const isActive = activeTab === item.id;
+        <div className="flex flex-col gap-2">
+          {units.map(u => {
+            const isCompleted = u.user_progress?.is_completed || false;
             return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id as any)}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[11px] font-medium transition-all duration-200 group text-left ${
-                  isActive 
-                    ? 'bg-gradient-to-r from-[#29174f] to-[#130c25] text-[#a855f7] border-l-2 border-[#a855f7]' 
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-[#1a1033]'
-                }`}
+              <div 
+                key={u.id} 
+                onClick={() => { setActiveUnit(u); setNoteText(u.user_progress?.notes || ''); }}
+                className={`p-3 rounded-lg flex items-center justify-between cursor-pointer transition ${activeUnit?.id === u.id ? 'bg-indigo-600' : 'bg-slate-700 hover:bg-slate-600'}`}
               >
-                <span className={isActive ? 'text-[#a855f7]' : 'text-gray-500 group-hover:text-[#06b6d4]'}>
-                  {item.icon}
-                </span>
-                {item.name}
-              </button>
+                <div className="flex items-center gap-3">
+                  <input 
+                    type="checkbox" 
+                    checked={isCompleted}
+                    onChange={() => handleToggleTick(u.id, isCompleted)}
+                    className="w-5 h-5 cursor-pointer accent-green-500"
+                  />
+                  <span>Unit {u.unit_number}: {u.title}</span>
+                </div>
+                <span className="text-xs text-slate-400 font-mono">{u.section_name}</span>
+              </div>
             );
           })}
-        </nav>
+        </div>
       </div>
 
-      <div className="border-t border-[#231742] pt-4 px-2 flex items-center justify-between text-[9px] text-gray-500 font-mono">
-        <span>SYS: ONLINE</span>
-        <span className="text-[#06b6d4]">AKYUZ_USER</span>
+      {/* SAĞ SÜTUN: Not Defteri */}
+      <div className="w-1/2 bg-slate-800 p-6 rounded-xl flex flex-col gap-4">
+        {activeUnit ? (
+          <>
+            <h2 className="text-xl font-bold border-b border-slate-700 pb-2">
+              Unit {activeUnit.unit_number} - Çalışma Notları
+            </h2>
+            <textarea
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              placeholder="Bu üniteyle ilgili formülleri, kuralları veya kelime eşleşmelerini buraya yazabilirsin..."
+              className="w-full flex-1 bg-slate-700 p-4 rounded-lg text-white resize-none border border-slate-600 focus:outline-none focus:border-indigo-500"
+            />
+            <button 
+              onClick={handleSaveNote}
+              className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded-lg transition"
+            >
+              Değişiklikleri Kaydet
+            </button>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-slate-400">
+            Not defterini açmak için soldan bir ünite seç.
+          </div>
+        )}
       </div>
     </div>
   );
