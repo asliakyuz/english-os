@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import Sidebar from '../components/Sidebar';
-import { BookOpen, PenTool, Plus, Trash2, CheckSquare, Square, ArrowRight, Search, CheckCircle2, GraduationCap, ChevronDown, ChevronUp, BarChart3, Target, Layers, FileText, Star } from 'lucide-react';
+import { BookOpen, PenTool, Plus, Trash2, CheckSquare, Square, ArrowRight, Search, CheckCircle2, GraduationCap, Layers, FileText, Star, Target } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,7 +44,7 @@ interface OxfordWord {
 }
 
 export default function EnglishOSMaster() {
-  const [activeTab, setActiveTab] = useState<'vocabulary' | 'archive' | 'oxford' | 'quiz' | 'journal' | 'goals' | 'grammar' | 'books_tracker' | 'general_grammar'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'vocabulary' | 'archive' | 'oxford' | 'quiz' | 'journal' | 'goals' | 'grammar' | 'dashboard' | 'books_tracker' | 'general_grammar'>('dashboard');
   
   const [customWords, setCustomWords] = useState<Word[]>([]);
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
@@ -65,8 +65,8 @@ export default function EnglishOSMaster() {
   const [unitNumber, setUnitNumber] = useState('');
   const [unitTitle, setUnitTitle] = useState('');
   const [sectionName, setSectionName] = useState('');
-  const [bookNoteText, setBookNoteText] = useState(''); // Form içindeki kocaman ilk özet için
-  const [bookUnitStarred, setBookUnitStarred] = useState(false); // Form içindeki ilk yıldız için
+  const [bookNoteText, setBookNoteText] = useState('');
+  const [bookUnitStarred, setBookUnitStarred] = useState(false);
 
   // --- 📝 GENEL GRAMER STATE'LERİ ---
   const [generalTopics, setGeneralTopics] = useState<any[]>([]);
@@ -120,7 +120,7 @@ export default function EnglishOSMaster() {
       setJournalEntries(journalsData || []);
 
       const { data: goalsData } = await supabase.from('goals').select('*').order('created_at', { ascending: true });
-      weeklyGoals && setWeeklyGoals(goalsData || []);
+      if (goalsData) setWeeklyGoals(goalsData);
 
       const { data: oxfordData } = await supabase.from('oxford_words').select('*').order('word', { ascending: true });
       setOxfordWords(oxfordData || []);
@@ -150,23 +150,20 @@ export default function EnglishOSMaster() {
     const { data } = await supabase.from('book_units')
       .select(`*, user_progress(is_completed, notes, is_starred)`)
       .eq('book_id', selectedBook)
-      .order('unit_number', { ascending: true }); // Her zaman girilen numaraya göre sıralı!
+      .order('unit_number', { ascending: true });
     if (data) setUnits(data);
   };
 
   useEffect(() => { fetchUnits(); }, [selectedBook]);
 
-  // --- 📘 Gelişmiş Özetli ve Yıldızlı Kitap Ünitesi Ekleme ---
   const handleAddUnit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!unitNumber || !unitTitle) return;
 
-    // Önce ünite tablosuna ana veriyi giriyoruz
     const { data: newUnit, error: unitError } = await supabase.from('book_units').insert([
       { book_id: selectedBook, unit_number: parseInt(unitNumber), title: unitTitle, section_name: sectionName || 'General' }
     ]).select();
 
-    // Ardından, girilen ilk özeti ve yıldız durumunu user_progress tablosuna kaydediyoruz
     if (!unitError && newUnit && newUnit.length > 0) {
       await supabase.from('user_progress').insert([
         { unit_id: newUnit[0].id, notes: bookNoteText.trim(), is_starred: bookUnitStarred, is_completed: false }
@@ -184,14 +181,14 @@ export default function EnglishOSMaster() {
 
   const handleToggleTick = async (unitId: string, currentStatus: boolean) => {
     const newStatus = !currentStatus;
-    const { error } = await supabase.from('user_progress').upsert({ unit_id: unitId, is_completed: newStatus }, { onConflict: 'unit_id' });
-    if (!error) fetchUnits();
+    await supabase.from('user_progress').upsert({ unit_id: unitId, is_completed: newStatus }, { onConflict: 'unit_id' });
+    fetchUnits();
   };
 
   const handleToggleBookStar = async (unitId: string, currentStarStatus: boolean) => {
     const newStarStatus = !currentStarStatus;
-    const { error } = await supabase.from('user_progress').upsert({ unit_id: unitId, is_starred: newStarStatus }, { onConflict: 'unit_id' });
-    if (!error) fetchUnits();
+    await supabase.from('user_progress').upsert({ unit_id: unitId, is_starred: newStarStatus }, { onConflict: 'unit_id' });
+    fetchUnits();
   };
 
   const handleUpdateBookNote = async (unitId: string, notes: string) => {
@@ -204,7 +201,6 @@ export default function EnglishOSMaster() {
     fetchUnits();
   };
 
-  // --- 📝 GENEL GRAMER SÜREÇLERİ ---
   const fetchGeneralTopics = () => {
     supabase.from('general_grammar').select('*').order('sort_order', { ascending: true }).then(({ data }) => {
       if (data) setGeneralTopics(data);
@@ -230,8 +226,8 @@ export default function EnglishOSMaster() {
 
   const handleToggleGeneralStar = async (id: string, currentStarStatus: boolean) => {
     const newStarStatus = !currentStarStatus;
-    const { error } = await supabase.from('general_grammar').update({ is_starred: newStarStatus }).eq('id', id);
-    if (!error) fetchGeneralTopics();
+    await supabase.from('general_grammar').update({ is_starred: newStarStatus }).eq('id', id);
+    fetchGeneralTopics();
   };
 
   const handleDeleteGeneralTopic = async (id: string) => {
@@ -240,7 +236,6 @@ export default function EnglishOSMaster() {
     fetchGeneralTopics();
   };
 
-  // Vocab Handlers
   const handleAddWord = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!word || !meaning) return;
@@ -297,7 +292,6 @@ export default function EnglishOSMaster() {
     }
   };
 
-  // İstatistiksel Hesaplamalar
   const totalWordsCount = customWords.filter(w => w.word_type !== 'Phrase').length;
   const totalPhrasesCount = customWords.filter(w => w.word_type === 'Phrase').length;
   const totalBookUnitsCount = units.length;
@@ -317,14 +311,12 @@ export default function EnglishOSMaster() {
 
       <main className="flex-1 min-h-screen ml-64 p-8 overflow-y-auto font-mono space-y-6">
         
-        {/* SEKME BAŞLIĞI */}
         <div className="border-b border-[#231742] pb-3 flex justify-between items-center">
           <h1 className="text-sm font-bold bg-gradient-to-r from-[#a855f7] to-[#06b6d4] bg-clip-text text-transparent tracking-widest">
             ENGINE_SYS // {activeTab.toUpperCase()}_MODE
           </h1>
         </div>
 
-        {/* 📊 SEKME 1: PERFORMANCE DASHBOARD */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -375,7 +367,6 @@ export default function EnglishOSMaster() {
           </div>
         )}
 
-        {/* 📘 SEKME: ESSENTIAL GRAMMAR IN USE (TAMAMEN GENEL GRAMER MANTIĞINDA DEV FORM VE ÖZET KUTULU) */}
         {activeTab === 'books_tracker' && (
           <div className="space-y-6 max-w-4xl mx-auto">
             <div className="flex justify-between items-center bg-[#130c25] border border-[#231742] p-4 rounded-xl">
@@ -390,7 +381,6 @@ export default function EnglishOSMaster() {
               </div>
             </div>
 
-            {/* ⚡ TAM İSTEDİĞİN KOCAMAN ÖZET ALANLI VE YILDIZLI KİTAP ÜNİTESİ FORMU */}
             {showAddForm && (
               <form onSubmit={handleAddUnit} className="bg-[#130c25] border border-[#ec4899]/40 p-6 rounded-xl flex flex-col gap-4 shadow-2xl animate-fade-in">
                 <div className="flex justify-between items-center border-b border-[#231742] pb-3">
@@ -405,18 +395,14 @@ export default function EnglishOSMaster() {
                   <input type="text" required placeholder="Unit Title (e.g., am/is/are)" value={unitTitle} onChange={(e) => setUnitTitle(e.target.value)} className="bg-[#0d071a] border border-[#2d1e56] p-3 rounded-lg col-span-2 text-xs text-white focus:outline-none focus:border-[#ec4899]" />
                 </div>
                 <input type="text" placeholder="Section / Group Name (e.g., Present, Past)" value={sectionName} onChange={(e) => setSectionName(e.target.value)} className="bg-[#0d071a] border border-[#2d1e56] p-3 rounded-lg text-xs text-white focus:outline-none focus:border-[#ec4899]" />
-                
-                {/* Kitap için kocaman form içi özet kutusu! */}
                 <textarea value={bookNoteText} onChange={e => setBookNoteText(e.target.value)} placeholder="Ünitenin ilk detaylı özetini, formüllerini ve siber kurallarını buraya kocaman yazabilirsin Aslı..." rows={6} className="bg-[#0d071a] border border-[#2d1e56] p-4 rounded-lg text-xs text-white resize-none focus:outline-none focus:border-[#ec4899] font-sans font-medium leading-relaxed" />
-                
                 <button type="submit" className="bg-[#ec4899] text-white py-3 rounded-lg font-bold text-xs transition-all shadow-lg shadow-pink-900/20">DEPLOY_UNIT_NODE_TO_MATRIX</button>
               </form>
             )}
 
-            {/* LİSTELENEN KİTAP ÜNİTELERİ (Her birinin altında kendi kalıcı özet kutusu var, otomatik kaydediliyor!) */}
             <div className="flex flex-col gap-4">
               {units.length === 0 ? (
-                <div className="text-gray-600 text-center py-12 border border-dashed border-[#231742] rounded-xl text-xs">Henüz kitap ünitesi eklenmemiş Aslı. Yukarıdaki butondan ekleyebilirsin.</div>
+                <div className="text-gray-600 text-center py-12 border border-dashed border-[#231742] rounded-xl text-xs">Henüz kitap ünitesi eklenmemiş Aslı.</div>
               ) : (
                 units.map((u) => {
                   const isCompleted = u.user_progress?.is_completed || false;
@@ -437,7 +423,7 @@ export default function EnglishOSMaster() {
                           <button type="button" onClick={() => handleToggleBookStar(u.id, isStarred)} className="text-gray-500 hover:text-amber-400 transition-colors">
                             <Star size={14} className={isStarred ? 'text-amber-400 fill-amber-400' : 'text-gray-500'} />
                           </button>
-                          <button onClick={() => handleDeleteBookUnit(u.id)} className="text-gray-600 hover:text-rose-500 transition-colors">
+                          <button type="button" onClick={() => handleDeleteBookUnit(u.id)} className="text-gray-600 hover:text-rose-500 transition-colors">
                             <Trash2 size={13}/>
                           </button>
                         </div>
@@ -451,7 +437,6 @@ export default function EnglishOSMaster() {
           </div>
         )}
 
-        {/* 📝 SEKME: GENEL GRAMER KONULARI */}
         {activeTab === 'general_grammar' && (
           <div className="p-2 flex flex-col gap-6 max-w-4xl mx-auto">
             <div className="flex justify-between items-center bg-[#130c25] border border-[#231742] p-4 rounded-xl">
@@ -490,7 +475,7 @@ export default function EnglishOSMaster() {
                         <button type="button" onClick={() => handleToggleGeneralStar(topic.id, topic.is_starred)} className="text-gray-500 hover:text-amber-400 transition-colors">
                           <Star size={14} className={topic.is_starred ? 'text-amber-400 fill-amber-400' : 'text-gray-500'} />
                         </button>
-                        <button onClick={() => handleDeleteGeneralTopic(topic.id)} className="text-gray-600 hover:text-rose-500 transition-colors">
+                        <button type="button" onClick={() => handleDeleteGeneralTopic(topic.id)} className="text-gray-600 hover:text-rose-500 transition-colors">
                           <Trash2 size={13}/>
                         </button>
                       </div>
@@ -503,7 +488,6 @@ export default function EnglishOSMaster() {
           </div>
         )}
 
-        {/* KELİME GİRİŞİ */}
         {activeTab === 'vocabulary' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="bg-[#130c25] border border-[#231742] rounded-xl p-6 h-fit lg:col-span-1">
@@ -544,7 +528,7 @@ export default function EnglishOSMaster() {
             <div className="lg:col-span-2 space-y-4">
               <h3 className="text-xs font-bold uppercase text-[#a855f7] tracking-wider">⚡ RECENTLY_ADDED_LOGS (Son 5 Kelime)</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {latestFiveWords.map((item) => (
+                {customWords.slice(0, 5).map((item) => (
                   <div key={item.id} className="bg-[#130c25] border border-[#231742] p-4 rounded-xl relative">
                     <div className="flex justify-between items-center mb-1">
                       <h4 className="text-sm font-bold text-white">{item.word}</h4>
@@ -558,7 +542,6 @@ export default function EnglishOSMaster() {
           </div>
         )}
 
-        {/* DIĞER SEKMELER */}
         {activeTab === 'archive' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-160px)]">
             <div className="bg-[#130c25] border border-[#231742] rounded-xl p-4 flex flex-col space-y-3 lg:col-span-1 h-full overflow-hidden">
@@ -690,7 +673,7 @@ export default function EnglishOSMaster() {
                     <div key={entry.id} className="bg-[#130c25] border border-[#231742] p-3 rounded-xl">
                       <div className="flex justify-between items-center text-[10px] text-gray-400 border-b border-[#1c1236] pb-1.5 mb-1.5">
                         <span className="font-bold text-white truncate max-w-[120px]">{entry.title}</span>
-                        <span>{new Date(entry.journal_date || entry.created_at).toLocaleDateString('tr-TR')}</span>
+                        <span>{entry.journal_date ? new Date(entry.journal_date).toLocaleDateString('tr-TR') : new Date(entry.created_at).toLocaleDateString('tr-TR')}</span>
                       </div>
                       <p className="text-[11px] text-gray-300 font-sans line-clamp-3 leading-relaxed">{entry.content}</p>
                     </div>
