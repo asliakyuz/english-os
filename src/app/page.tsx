@@ -5,7 +5,9 @@ import { supabase } from '../lib/supabase';
 import Sidebar from '../components/Sidebar';
 import { BookOpen, PenTool, Plus, Trash2, CheckSquare, Square, ArrowRight, Search, CheckCircle2, GraduationCap, ChevronDown, ChevronUp, BarChart3, Target, Layers, FileText, Star } from 'lucide-react';
 
-export const dynamic = 'force-dynamic';
+const [isClient, setIsClient] = useState(false);
+useEffect(() => { setIsClient(true); fetchData(); }, []);
+if (!isClient) return <div className="text-white">LOADING_SYSTEM_RESOURCES...</div>;
 
 interface Word {
   id: string;
